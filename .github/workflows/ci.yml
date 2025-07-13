@@ -34,15 +34,15 @@ jobs:
         run: |
           tflint > tflint.log || echo "::warning::TFLint failed"
 
-      - name: Comment TFLint Output
-        if: github.event_name == 'pull_request'
-        uses: mshick/add-pr-comment@v2
+      - uses: mshick/add-pr-comment@v2
         with:
           message: |
             ## TFLint Results
             ```
             ${{ steps.tflint.outputs.stdout }}
             ```
+          repo-token: ${{ secrets.PERSONAL_TOKEN }}
+
 
       - name: Terraform Format Check
         run: terraform fmt -check -recursive || echo "::warning::Terraform fmt failed"
