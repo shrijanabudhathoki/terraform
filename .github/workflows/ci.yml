@@ -37,11 +37,9 @@ jobs:
       - uses: mshick/add-pr-comment@v2
         with:
           message: |
-            ## TFLint Results
-            ```
-            ${{ steps.tflint.outputs.stdout }}
-            ```
-          repo-token: ${{ secrets.PERSONAL_TOKEN }}
+            **Release created**
+            Tag: `${{ steps.tag.outputs.tag }}`
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
 
       - name: Terraform Format Check
