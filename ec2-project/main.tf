@@ -43,4 +43,4 @@ resource aws_instance "my_ec2"{
         Name = "ec2",
         Creator = "shrijana"
     }
-}
+}# test comment
