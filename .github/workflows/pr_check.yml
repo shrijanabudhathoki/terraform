@@ -8,11 +8,11 @@ on:
     branches:
       - main
 
-
 jobs:
 
-  lint:
-    name: Terraform Lint
+  ## === EC2 JOBS ===
+  lint-ec2:
+    name: EC2 Terraform Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +39,6 @@ jobs:
         working-directory: ./ec2-project
         run: tflint --init && tflint
 
-
       - name: Terraform Format Check
         working-directory: ./ec2-project
         run: terraform fmt -check -recursive || echo "::warning::Terraform fmt failed"
@@ -51,9 +50,8 @@ jobs:
         working-directory: ./ec2-project
         run: terraform validate || echo "::warning::Terraform validate failed"
 
-
-  security:
-    name: Security Scan
+  security-ec2:
+    name: EC2 Security Scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,10 +76,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           working_directory: ./ec2-project
 
-
-  plan:
-    name: Terraform Plan
-    needs: [lint, security]
+  plan-ec2:
+    name: EC2 Terraform Plan
+    needs: [lint-ec2, security-ec2]
     runs-on: ubuntu-latest
     outputs:
       plan: ${{ steps.plan.outputs.plan }}
@@ -124,12 +121,12 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## Terraform Plan Output for \`ec2-instance\`\n\n\`\`\`hcl\n${planOutput}\n\`\`\``
+              body: `## Terraform Plan Output for \`ec2-project\`\n\n\`\`\`hcl\n${planOutput}\n\`\`\``
             });
 
-  release:
-    name: Create Release
-    needs: plan
+  release-ec2:
+    name: EC2 Create Release
+    needs: plan-ec2
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.ec2-version.outputs.new_version }}
@@ -145,7 +142,7 @@ jobs:
           zip -r ec2-terraform-config.zip . -x "*.git*"
           mkdir -p releases
           mv ec2-terraform-config.zip releases/
-          
+
       - name: Get EC2 Project Version
         id: ec2-version
         working-directory: ./ec2-project
@@ -157,13 +154,14 @@ jobs:
           patch=$(echo $version | cut -d. -f3)
           new_patch=$((patch + 1))
           new_version="ec2-v${major}.${minor}.${new_patch}"
-          echo "new_version=$new_version"
           echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+
       - name: Create Tag
         uses: mathieudutour/github-tag-action@v2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ steps.ec2-version.outputs.new_version }}
+
       - name: Upload EC2 Release Asset
         uses: marvinpinto/action-automatic-releases@latest
         with:
@@ -173,11 +171,136 @@ jobs:
           title: "EC2 Release ${{ steps.ec2-version.outputs.new_version }}"
           files: ec2-project/releases/ec2-terraform-config.zip
 
+  ## === S3 JOBS ===
+  lint-s3:
+    name: S3 Terraform Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.2
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+      - name: Terraform Init
+        working-directory: ./s3-project
+        run: terraform init
+      - name: Run TFLint
+        working-directory: ./s3-project
+        run: tflint --init && tflint
+      - name: Terraform Format Check
+        working-directory: ./s3-project
+        run: terraform fmt -check -recursive || echo "::warning::Terraform fmt failed"
+      - name: Terraform Format Fix
+        run: terraform fmt -recursive
+      - name: Terraform Validate
+        working-directory: ./s3-project
+        run: terraform validate || echo "::warning::Terraform validate failed"
 
+  security-s3:
+    name: S3 Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.2
+      - name: Terraform Init
+        working-directory: ./s3-project
+        run: terraform init
+      - name: tfsec security scan
+        uses: aquasecurity/tfsec-pr-commenter-action@v1.2.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          working_directory: ./s3-project
 
+  plan-s3:
+    name: S3 Terraform Plan
+    needs: [lint-s3, security-s3]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.2
+      - name: Terraform Init
+        working-directory: ./s3-project
+        run: terraform init
+      - name: Terraform Plan
+        id: plan
+        working-directory: ./s3-project
+        run: |
+          mkdir -p ./terraform_plans
+          terraform plan -lock=false -input=false -no-color -out=./terraform_plans/tfplan.binary
+          terraform show -no-color ./terraform_plans/tfplan.binary > ./terraform_plans/plan.txt
+      - name: Comment Terraform Plan Output
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const planOutput = fs.readFileSync('./s3-project/terraform_plans/plan.txt', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Terraform Plan Output for \`s3-project\`\n\n\`\`\`hcl\n${planOutput}\n\`\`\``
+            });
 
-
-
-
-
-
+  release-s3:
+    name: S3 Create Release
+    needs: plan-s3
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Generate S3 Zip File
+        working-directory: s3-project
+        run: |
+          zip -r s3-terraform-config.zip . -x "*.git*"
+          mkdir -p releases
+          mv s3-terraform-config.zip releases/
+      - name: Get S3 Project Version
+        id: s3-version
+        working-directory: ./s3-project
+        run: |
+          latest_tag=$(git describe --tags --match "s3-v*" --abbrev=0 2>/dev/null || echo "s3-v0.0.0")
+          version=${latest_tag#s3-v}
+          major=$(echo $version | cut -d. -f1)
+          minor=$(echo $version | cut -d. -f2)
+          patch=$(echo $version | cut -d. -f3)
+          new_patch=$((patch + 1))
+          new_version="s3-v${major}.${minor}.${new_patch}"
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+      - name: Create Tag
+        uses: mathieudutour/github-tag-action@v2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.s3-version.outputs.new_version }}
+      - name: Upload S3 Release Asset
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          automatic_release_tag: ${{ steps.s3-version.outputs.new_version }}
+          prerelease: false
+          title: "S3 Release ${{ steps.s3-version.outputs.new_version }}"
+          files: s3-project/releases/s3-terraform-config.zip
