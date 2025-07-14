@@ -281,10 +281,10 @@ jobs:
       - name: Download artifact
         uses: dawidd6/action-download-artifact@v3
         with:
-          name: terraform-artifact
+          name: terraform-config.zip
 
       - name: Extract zip
-        run: unzip terraform-build.zip
+        run: unzip terraform-config.zip
 
       - uses: hashicorp/setup-terraform@v3
         with:
