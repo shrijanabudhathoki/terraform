@@ -1,3 +1,14 @@
+terraform {
+  required_version = "1.12.2"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "6.3.0"
+    }
+  }
+}
+
 provider "aws" {
     region = "us-east-1"
 }
@@ -43,4 +54,16 @@ resource aws_instance "my_ec2"{
         Name = "ec2",
         Creator = "shrijana"
     }
-}
+}# test comment
+# test comment
+# test comment
+# test comment
+# test comment
+# test comment
+# test comment
+# test comment
+# test comment
+# test comment
+# test comment
+# test comment
+# test comment
