@@ -267,11 +267,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate EC2 Zip
+      - name: Generate s3 Zip
         run: |
           zip -r s3-config.zip ./s3-project -x "*.terraform*" "*terraform.tfstate*" "*terraform.tfstate.backup*"
           mkdir -p releases
-          mv ec2-config.zip releases/
+          mv s3-config.zip releases/
 
       - name: Get s3 Project Version
         id: version
@@ -318,7 +318,7 @@ jobs:
         uses: dsaltares/fetch-gh-release-asset@master
         with:
           repo: ${{ github.repository }}
-          tag: ec2-vX.Y.Z  # optionally use output from release job
+          tag: ec2-vX.Y.Z  
           file: ec2-config.zip
           target: ec2-config.zip
           token: ${{ secrets.GITHUB_TOKEN }}
