@@ -304,7 +304,8 @@ jobs:
     needs: release-ec2
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -314,30 +315,42 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Download EC2 Release Artifact
+      - name: Download Release Artifact
         uses: dsaltares/fetch-gh-release-asset@master
         with:
           repo: ${{ github.repository }}
-          tag: ec2-vX.Y.Z  
-          file: ec2-config.zip
-          target: ec2-config.zip
+          regex: "ec2-v.*"
+          file: ec2-terraform-config.zip
+          target: ec2-terraform-config.zip
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: unzip ec2-config.zip -d terraform
-      - uses: hashicorp/setup-terraform@v3
+      - name: Unzip Artifact
+        run: unzip ec2-terraform-config.zip -d terraform
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.12.2
-      - name: Terraform Init & Apply EC2
-        working-directory: terraform/ec2-project
-        run: |
-          terraform init
-          terraform apply -auto-approve
+
+      - name: Terraform Init EC2
+        working-directory: ./ec2-project
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: ./ec2-project
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: "us-east-1"
+
+        run: terraform apply -auto-approve
 
   deploy-s3:
     needs: release-s3
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -347,22 +360,28 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Download s3 Release Artifact
+      - name: Download Release Artifact
         uses: dsaltares/fetch-gh-release-asset@master
         with:
           repo: ${{ github.repository }}
-          tag: s3-vX.Y.Z  
-          file: s3-config.zip
-          target: s3-config.zip
+          regex: "s3-v.*"
+          file: s3-terraform-config.zip
+          target: s3-terraform-config.zip
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - run: unzip s3-config.zip -d terraform
-      - uses: hashicorp/setup-terraform@v3
+      - name: Unzip Artifact
+        run: unzip s3-terraform-config.zip -d terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.12.2
-      - name: Terraform Init & Apply s3
-        working-directory: terraform/s3-project
-        run: |
-          terraform init
-          terraform apply -auto-approve
 
+      - name: Terraform Init S3
+        working-directory: ./s3-project
+        run: terraform init
+      - name: Terraform Apply
+        working-directory: ./s3-project
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: "us-east-1"
+        run: terraform apply -auto-approve
