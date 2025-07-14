@@ -101,6 +101,7 @@ jobs:
         run: terraform init
 
       - name: Terraform Plan
+        working-directory: ./ec2-project
         id: plan
         run: |
           mkdir -p ./terraform_plans
