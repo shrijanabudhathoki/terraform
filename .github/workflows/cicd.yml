@@ -264,6 +264,7 @@ jobs:
           files: releases/terraform-config.zip
 
   deploy:
+    needs: release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
