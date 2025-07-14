@@ -36,6 +36,7 @@ jobs:
         working-directory: ./ec2-project
         run: tflint --init && tflint
 
+
       - name: Terraform Format Check
         working-directory: ./ec2-project
         run: terraform fmt -check -recursive || echo "::warning::Terraform fmt failed"
@@ -93,7 +94,7 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.8.0
+          terraform_version: 1.12.2
 
       - name: Terraform Init
         working-directory: ./ec2-project
