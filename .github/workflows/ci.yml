@@ -28,24 +28,20 @@ jobs:
           tflint_version: latest
 
       - name: Terraform Init
+        working-directory: ./ec2-project
         run: terraform init
 
       - name: Run TFLint
+        working-directory: ./ec2-project
         run: |
           tflint > tflint.log || echo "::warning::TFLint failed"
 
-      - uses: mshick/add-pr-comment@v2
-        with:
-          message: |
-            **Release created**
-            Tag: `${{ steps.tag.outputs.tag }}`
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-
       - name: Terraform Format Check
+        working-directory: ./ec2-project
         run: terraform fmt -check -recursive || echo "::warning::Terraform fmt failed"
 
       - name: Terraform Validate
+        working-directory: ./ec2-project
         run: terraform validate || echo "::warning::Terraform validate failed"
 
 
@@ -66,6 +62,7 @@ jobs:
           terraform_version: 1.8.0
 
       - name: Terraform Init
+        working-directory: ./ec2-project
         run: terraform init
 
       - name: tfsec security scan
@@ -96,10 +93,12 @@ jobs:
           terraform_version: 1.8.0
 
       - name: Terraform Init
+        working-directory: ./ec2-project
         run: terraform init
 
       - name: Terraform Plan
         id: plan
+        working-directory: ./ec2-project
         run: |
           terraform plan -no-color > tfplan.txt
           exitcode=$?
@@ -155,3 +154,4 @@ jobs:
           message: |
             **Release created**
             Tag: `${{ steps.tag.outputs.tag }}`
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
