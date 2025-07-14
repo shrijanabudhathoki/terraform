@@ -215,97 +215,56 @@ jobs:
               body: `## Terraform Plan Output for \`s3-project\`\n\n\`\`\`hcl\n${planOutput}\n\`\`\``
             });
 
-  release-ec2:
-    name: Create EC2 Release
-    needs: plan-ec2
+  release:
+    name: Create Release
+    needs: 
+      - plan-s3
+      - plan-ec2
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Generate EC2 Zip
+      - name: Generate Zip File
         run: |
-          zip -r ec2-config.zip ./ec2-project -x "*.terraform*" "*terraform.tfstate*" "*terraform.tfstate.backup*"
+          zip -r terraform-config.zip . -x "*.git*" "*.terraform*" ".github*" "*terraform.tfstate*" "*terraform.tfstate.backup*"
           mkdir -p releases
-          mv ec2-config.zip releases/
-
-      - name: Get EC2 Project Version
+          mv terraform-config.zip releases/
+      - name: Get Project Version
         id: version
         run: |
-          latest_tag=$(git tag --list "ec2-v*" --sort=-v:refname | head -n 1)
-          version=${latest_tag#ec2-v}
-          major=$(echo "${version:-0.0.0}" | cut -d. -f1)
-          minor=$(echo "${version:-0.0.0}" | cut -d. -f2)
-          patch=$(echo "${version:-0.0.0}" | cut -d. -f3)
+          latest_tag=$(git describe --tags --match "v*" --abbrev=0 2>/dev/null || echo "v0.0.0")
+          version=${latest_tag#v}
+          major=$(echo $version | cut -d. -f1)
+          minor=$(echo $version | cut -d. -f2)
+          patch=$(echo $version | cut -d. -f3)
           new_patch=$((patch + 1))
-          new_version="ec2-v${major}.${minor}.${new_patch}"
+          new_version="v${major}.${minor}.${new_patch}"
+          echo "new_version=$new_version"
           echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
-
-      - name: Create EC2 Tag
+      - name: Create Tag
         uses: mathieudutour/github-tag-action@v2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ steps.version.outputs.new_version }}
 
-      - name: Upload EC2 Release
+      - name: Upload Release Asset
         uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           automatic_release_tag: ${{ steps.version.outputs.new_version }}
-          title: "EC2 Release ${{ steps.version.outputs.new_version }}"
-          files: releases/ec2-config.zip
+          prerelease: false
+          title: "Release ${{ steps.version.outputs.new_version }}"
+          files: releases/terraform-config.zip
 
-  release-s3:
-    name: Create s3 Release
-    needs: plan-s3
+  deploy:
+    needs: release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Generate s3 Zip
-        run: |
-          zip -r s3-config.zip ./s3-project -x "*.terraform*" "*terraform.tfstate*" "*terraform.tfstate.backup*"
-          mkdir -p releases
-          mv s3-config.zip releases/
-
-      - name: Get s3 Project Version
-        id: version
-        run: |
-          latest_tag=$(git tag --list "s3-v*" --sort=-v:refname | head -n 1)
-          version=${latest_tag#s3-v}
-          major=$(echo "${version:-0.0.0}" | cut -d. -f1)
-          minor=$(echo "${version:-0.0.0}" | cut -d. -f2)
-          patch=$(echo "${version:-0.0.0}" | cut -d. -f3)
-          new_patch=$((patch + 1))
-          new_version="s3-v${major}.${minor}.${new_patch}"
-          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
-
-      - name: Create s3 Tag
-        uses: mathieudutour/github-tag-action@v2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.version.outputs.new_version }}
-
-      - name: Upload s3 Release
-        uses: marvinpinto/action-automatic-releases@latest
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          automatic_release_tag: ${{ steps.version.outputs.new_version }}
-          title: "s3 Release ${{ steps.version.outputs.new_version }}"
-          files: releases/s3-config.zip
-
-
-  deploy-ec2:
-    needs: release-ec2
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -315,77 +274,29 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Get latest EC2 tag
-        id: latest_ec2
-        run: |
-          latest_tag=$(git tag --list "ec2-v*" --sort=-v:refname | head -n 1)
-          echo "tag=$latest_tag" >> "$GITHUB_OUTPUT"
-
       - name: Download Release Artifact
         uses: dsaltares/fetch-gh-release-asset@master
         with:
           repo: ${{ github.repository }}
-          version: ${{ steps.latest_ec2.outputs.tag }}
-          file: ec2-config.zip
-          target: ec2-config.zip
+          file: terraform-config.zip
+          target: terraform-config.zip
           token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Unzip Artifact
-        run: unzip ec2-config.zip -d terraform
-
+        run: unzip terraform-config.zip -d terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.12.2
-
       - name: Terraform Init EC2
         working-directory: ./ec2-project
         run: terraform init
-
       - name: Terraform Apply
         working-directory: ./ec2-project
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: "us-east-1"
-
         run: terraform apply -auto-approve
-
-  deploy-s3:
-    needs: release-s3
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Get latest S3 tag
-        id: latest_s3
-        run: |
-          latest_tag=$(git tag --list "s3-v*" --sort=-v:refname | head -n 1)
-          echo "tag=$latest_tag" >> "$GITHUB_OUTPUT"
-
-      - name: Download Release Artifact
-        uses: dsaltares/fetch-gh-release-asset@master
-        with:
-          repo: ${{ github.repository }}
-          version: ${{ steps.latest_s3.outputs.tag }}
-          file: s3-config.zip
-          target: s3-config.zip
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Unzip Artifact
-        run: unzip s3-config.zip -d terraform
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.12.2
 
       - name: Terraform Init S3
         working-directory: ./s3-project
