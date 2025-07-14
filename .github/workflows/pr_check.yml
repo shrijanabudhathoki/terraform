@@ -4,6 +4,9 @@ on:
   pull_request:
     branches:
       - main
+  push:
+    branches:
+      - main
 
 
 jobs:
@@ -123,6 +126,52 @@ jobs:
               repo: context.repo.repo,
               body: `## Terraform Plan Output for \`ec2-instance\`\n\n\`\`\`hcl\n${planOutput}\n\`\`\``
             });
+
+  release:
+    name: Create Release
+    needs: plan
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.ec2-version.outputs.new_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Generate EC2 Zip File
+        working-directory: ec2-project
+        run: |
+          zip -r ec2-terraform-config.zip . -x "*.git*"
+          mkdir -p releases
+          mv ec2-terraform-config.zip releases/
+          
+      - name: Get EC2 Project Version
+        id: ec2-version
+        working-directory: ./ec2-project
+        run: |
+          latest_tag=$(git describe --tags --match "ec2-v*" --abbrev=0 2>/dev/null || echo "ec2-v0.0.0")
+          version=${latest_tag#ec2-v}
+          major=$(echo $version | cut -d. -f1)
+          minor=$(echo $version | cut -d. -f2)
+          patch=$(echo $version | cut -d. -f3)
+          new_patch=$((patch + 1))
+          new_version="ec2-v${major}.${minor}.${new_patch}"
+          echo "new_version=$new_version"
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+      - name: Create Tag
+        uses: mathieudutour/github-tag-action@v2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.ec2-version.outputs.new_version }}
+      - name: Upload EC2 Release Asset
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          automatic_release_tag: ${{ steps.ec2-version.outputs.new_version }}
+          prerelease: false
+          title: "EC2 Release ${{ steps.ec2-version.outputs.new_version }}"
+          files: ec2-project/releases/ec2-terraform-config.zip
 
 
 
