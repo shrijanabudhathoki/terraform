@@ -40,6 +40,9 @@ jobs:
         working-directory: ./ec2-project
         run: terraform fmt -check -recursive || echo "::warning::Terraform fmt failed"
 
+      - name: Terraform Format Fix
+        run: terraform fmt -recursive
+
       - name: Terraform Validate
         working-directory: ./ec2-project
         run: terraform validate || echo "::warning::Terraform validate failed"
@@ -109,12 +112,15 @@ jobs:
 
       - name: Comment Plan
         uses: GetTerminus/terraform-pr-commenter@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           commenter_type: plan
           commenter_input: ${{ steps.plan.outputs.plan }}
           commenter_exitcode: ${{ steps.plan.outputs.exitcode }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           terraform_version: 1.8.0
+
+
 
 
   build_artifact:
