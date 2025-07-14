@@ -229,9 +229,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch tags
-        run: git fetch --tags
-
       - name: Generate Zip File
         run: |
           zip -r terraform-config.zip . -x "*.git*" "*.terraform*" ".github*" "*terraform.tfstate*" "*terraform.tfstate.backup*"
