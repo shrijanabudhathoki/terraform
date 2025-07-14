@@ -1,0 +1,122 @@
+name: Terraform PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+
+jobs:
+
+  lint:
+    name: Terraform Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.0
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: Terraform Init
+        working-directory: ./ec2-project
+        run: terraform init
+
+      - name: Run TFLint
+        working-directory: ./ec2-project
+        run: |
+          tflint > tflint.log || echo "::warning::TFLint failed"
+
+      - name: Terraform Format Check
+        working-directory: ./ec2-project
+        run: terraform fmt -check -recursive || echo "::warning::Terraform fmt failed"
+
+      - name: Terraform Format Fix
+        run: terraform fmt -recursive
+
+      - name: Terraform Validate
+        working-directory: ./ec2-project
+        run: terraform validate || echo "::warning::Terraform validate failed"
+
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.0
+
+      - name: Terraform Init
+        working-directory: ./ec2-project
+        run: terraform init
+
+      - name: tfsec security scan
+        uses: aquasecurity/tfsec-pr-commenter-action@v1.2.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          working_directory: ./ec2-project
+
+
+  plan:
+    name: Terraform Plan
+    needs: [lint, security]
+    runs-on: ubuntu-latest
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+      exitcode: ${{ steps.plan.outputs.exitcode }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.0
+
+      - name: Terraform Init
+        working-directory: ./ec2-project
+        run: terraform init
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: ./ec2-project
+        run: |
+          terraform plan -no-color > tfplan.txt
+          exitcode=$?
+          echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
+          echo "plan<<EOF" >> $GITHUB_OUTPUT
+          cat tfplan.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Comment Plan
+        uses: GetTerminus/terraform-pr-commenter@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          commenter_type: plan
+          commenter_input: ${{ steps.plan.outputs.plan }}
+          commenter_exitcode: ${{ steps.plan.outputs.exitcode }}
+          terraform_version: 1.8.0
