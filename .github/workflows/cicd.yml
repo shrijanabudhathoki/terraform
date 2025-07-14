@@ -315,11 +315,17 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Get latest EC2 tag
+        id: latest_ec2
+        run: |
+          latest_tag=$(git tag --list "ec2-v*" --sort=-v:refname | head -n 1)
+          echo "tag=$latest_tag" >> "$GITHUB_OUTPUT"
+
       - name: Download Release Artifact
         uses: dsaltares/fetch-gh-release-asset@master
         with:
           repo: ${{ github.repository }}
-          version: latest
+          version: ${{ steps.latest_ec2.outputs.tag }}
           file: ec2-config.zip
           target: ec2-config.zip
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -360,11 +366,17 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Get latest S3 tag
+        id: latest_s3
+        run: |
+          latest_tag=$(git tag --list "s3-v*" --sort=-v:refname | head -n 1)
+          echo "tag=$latest_tag" >> "$GITHUB_OUTPUT"
+
       - name: Download Release Artifact
         uses: dsaltares/fetch-gh-release-asset@master
         with:
           repo: ${{ github.repository }}
-          version: latest
+          version: ${{ steps.latest_s3.outputs.tag }}
           file: s3-config.zip
           target: s3-config.zip
           token: ${{ secrets.GITHUB_TOKEN }}
