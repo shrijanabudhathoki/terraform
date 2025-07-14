@@ -284,7 +284,7 @@ jobs:
           repo: ${{ github.repository }}
           file: terraform-config.zip
           target: terraform-config.zip
-          token: ${{ secrets.GITHUB_ACTIONS }}
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Unzip Artifact
         run: unzip terraform-config.zip -d terraform
       - name: Setup Terraform
