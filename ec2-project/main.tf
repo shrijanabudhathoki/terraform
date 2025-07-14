@@ -1,5 +1,16 @@
+terraform {
+  required_version = "1.12.2"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "6.3.0"
+    }
+  }
+}
+
 provider "aws" {
-    region = "us-east-1"
+  region = "us-east-1"
 }
 
 resource "aws_iam_role" "ec2_write_role" {
@@ -22,8 +33,8 @@ resource "aws_iam_role_policy" "ec2_write_policy" {
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
-      Action = ["s3:PutObject"],
+      Effect   = "Allow",
+      Action   = ["s3:PutObject"],
       Resource = "arn:aws:s3:::only-ec2-write-bucket-123456/*"
     }]
   })
@@ -34,13 +45,19 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   role = aws_iam_role.ec2_write_role.name
 }
 
-resource aws_instance "my_ec2"{
-    ami = "ami-05ffe3c48a9991133"
-    instance_type = "t2.micro"
-    iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
-    key_name = "shrijana"
-    tags = {
-        Name = "ec2",
-        Creator = "shrijana"
-    }
-}
+resource "aws_instance" "my_ec2_instance" {
+  ami                         = "ami-05ffe3c48a9991133"
+  instance_type               = "t2.micro"
+  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
+  key_name                    = "shrijana"
+  associate_public_ip_address = true
+  tags = {
+    Name    = "ec2-instance",
+    Creator = "shrijana"
+  }
+}# test comment
+# test comment
+# test comment
+# test comment
+# test comment
+# test comment
