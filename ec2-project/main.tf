@@ -55,10 +55,5 @@ resource "aws_instance" "my_ec2_instance" {
     Name    = "ec2-instance",
     Creator = "shrijana"
   }
-}# test comment
-# test comment
-# test comment
-# test comment
-# test comment
-# test comment
+}
 # test comment
