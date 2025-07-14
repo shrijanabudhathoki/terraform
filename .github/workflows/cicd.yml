@@ -319,7 +319,7 @@ jobs:
         uses: dsaltares/fetch-gh-release-asset@master
         with:
           repo: ${{ github.repository }}
-          regex: "ec2-v.*"
+          version: latest
           file: ec2-terraform-config.zip
           target: ec2-terraform-config.zip
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -364,7 +364,7 @@ jobs:
         uses: dsaltares/fetch-gh-release-asset@master
         with:
           repo: ${{ github.repository }}
-          regex: "s3-v.*"
+          version: latest
           file: s3-terraform-config.zip
           target: s3-terraform-config.zip
           token: ${{ secrets.GITHUB_TOKEN }}
