@@ -22,7 +22,8 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.12.2
+          terraform_version: 1.8.0
+
       - uses: terraform-linters/setup-tflint@v4
         with:
           tflint_version: latest
@@ -61,7 +62,7 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.12.2
+          terraform_version: 1.8.0
 
       - name: Terraform Init
         working-directory: ./ec2-project
@@ -92,7 +93,7 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.12.2
+          terraform_version: 1.8.0
 
       - name: Terraform Init
         working-directory: ./ec2-project
@@ -116,4 +117,4 @@ jobs:
           commenter_type: plan
           commenter_input: ${{ steps.plan.outputs.plan }}
           commenter_exitcode: ${{ steps.plan.outputs.exitcode }}
-          terraform_version: 1.12.2
+          terraform_version: 1.8.0
