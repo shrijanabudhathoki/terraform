@@ -217,7 +217,7 @@ jobs:
               body: `## Terraform Plan Output for \`s3-project\`\n\n\`\`\`hcl\n${planOutput}\n\`\`\``
             });
 
-  release-s3:
+  release:
     name: Create Release
     needs: 
       - plan-s3
@@ -228,29 +228,32 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+
       - name: Generate Zip File
-        working-directory: .
         run: |
-          zip -r terraform-config.zip . -x "*.git*"
+          zip -r terraform-config.zip . -x "*.git*" "*.terraform*" ".github*" "*terraform.tfstate*" "*terraform.tfstate.backup*"
           mkdir -p releases
           mv terraform-config.zip releases/
+
       - name: Get Project Version
         id: version
-        working-directory: .
         run: |
           latest_tag=$(git describe --tags --match "v*" --abbrev=0 2>/dev/null || echo "v0.0.0")
-          version=${latest_tag#s3-v}
+          version=${latest_tag#v}
           major=$(echo $version | cut -d. -f1)
           minor=$(echo $version | cut -d. -f2)
           patch=$(echo $version | cut -d. -f3)
           new_patch=$((patch + 1))
-          new_version="${major}.${minor}.${new_patch}"
+          new_version="v${major}.${minor}.${new_patch}"
+          echo "new_version=$new_version"
           echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+
       - name: Create Tag
         uses: mathieudutour/github-tag-action@v2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ steps.version.outputs.new_version }}
+
       - name: Upload Release Asset
         uses: marvinpinto/action-automatic-releases@latest
         with:
@@ -258,4 +261,4 @@ jobs:
           automatic_release_tag: ${{ steps.version.outputs.new_version }}
           prerelease: false
           title: "Release ${{ steps.version.outputs.new_version }}"
-          files: project/releases/terraform-config.zip
+          files: releases/terraform-config.zip
