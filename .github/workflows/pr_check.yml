@@ -22,7 +22,7 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.8.0
+          terraform_version: 1.12.2
 
       - uses: terraform-linters/setup-tflint@v4
         with:
@@ -34,8 +34,9 @@ jobs:
 
       - name: Run TFLint
         working-directory: ./ec2-project
-        run: |
-          tflint > tflint.log || echo "::warning::TFLint failed"
+        run: tflint --init && tflint
+
+
       - name: Terraform Format Check
         working-directory: ./ec2-project
         run: terraform fmt -check -recursive || echo "::warning::Terraform fmt failed"
@@ -62,7 +63,7 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.8.0
+          terraform_version: 1.12.2
 
       - name: Terraform Init
         working-directory: ./ec2-project
@@ -93,28 +94,34 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.8.0
+          terraform_version: 1.12.2
 
       - name: Terraform Init
         working-directory: ./ec2-project
         run: terraform init
 
       - name: Terraform Plan
-        id: plan
         working-directory: ./ec2-project
+        id: plan
         run: |
-          terraform plan -no-color > tfplan.txt
-          exitcode=$?
-          echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
-          echo "plan<<EOF" >> $GITHUB_OUTPUT
-          cat tfplan.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-      - name: Comment Plan
-        uses: GetTerminus/terraform-pr-commenter@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          mkdir -p ./terraform_plans
+          terraform plan -lock=false -input=false -no-color -out=./terraform_plans/tfplan.binary
+          terraform show -no-color ./terraform_plans/tfplan.binary > ./terraform_plans/plan.txt
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+
+      - name: Comment Plan Results
+        if: github.event_name == 'pull_request'
+        uses: GetTerminus/terraform-pr-commenter@v3
         with:
           commenter_type: plan
-          commenter_input: ${{ steps.plan.outputs.plan }}
-          commenter_exitcode: ${{ steps.plan.outputs.exitcode }}
-          terraform_version: 1.8.0
+          commenter_input: ./terraform_plans/tfplan.txt
+          commenter_plan_path: ./terraform_plans/plan.txt
+          commenter_exitcode: ${{ steps.plan.outputs.exit_code }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+
+
+
+
